@@ -1,0 +1,52 @@
+from transformers import AutoTokenizer
+import pdfplumber
+import spacy
+from spacy.tokens import Token
+import syllapy
+
+
+def extract(file_path):
+    with pdfplumber.open(file_path) as pdf:
+        text = ''
+        for page in pdf.pages:
+            text += page.extract_text() + '\n'
+    return text
+
+resume_text = extract("Resume.pdf")
+print("Extracted Resume Text: ", resume_text)
+
+def keywords(text):
+    tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
+    tokens = tokenizer.tokenize(text)
+    kws = [token for token in tokens if token.isalpha()]
+    return list(set(kws))
+
+job_desc = "We are looking for a software engineer with experience in Python, machine learning, and data analysis."
+
+kwss = keywords(job_desc)
+print("Extracted Keywords: ", kwss)
+def match(resume_text,job_keywords):
+    resume_words=set(resume_text.lower().split())
+    matched=[word for word in job_keywords if word.lower() in resume_words]
+    missing=[word for word in job_keywords if word.lower() not in resume_words]
+    return matched,missing
+
+def get_syllables(token):
+    return syllapy.count(token.text)
+
+Token.set_extension('syllables', getter=get_syllables)
+
+def readability_analysis(resume_text):
+    nlp = spacy.load("en_core_web_sm")
+    doc = nlp(resume_text)
+    num_sentences = len(list(doc.sents))
+    num_words = len(doc)
+    num_syllables = sum(token._.syllables for token in doc if token._.syllables)
+    flesch_reading_ease = 206.835 - (1.015 * (num_words / num_sentences)) - (84.6 * (num_syllables / num_words))
+
+    return flesch_reading_ease, num_words, num_sentences
+
+resume_text = "This is an example resume text used for readability analysis."
+readability_score, num_words, num_sentences = readability_analysis(resume_text)
+
+print(f"Readability Score: {readability_score}, Words: {num_words}, Sentences: {num_sentences}")
